@@ -1,0 +1,85 @@
+# version: '3'
+
+services:
+  source_postgres:
+    # Service for the source PostgreSQL database
+    image: postgres:latest
+    # Use the official PostgreSQL image
+    networks:
+      # Define the network for the service
+      - elt_network
+    environment:
+      # Environment variables for PostgreSQL
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: source_db
+    healthcheck:
+      test: pg_isready -h localhost -U $$POSTGRES_USER
+      interval: 2s
+      timeout: 5s
+      retries: 5
+    ports:
+      # Expose the PostgreSQL port
+      - "5433:5432"
+    volumes:
+      # Map the local directory to the container's init directory
+      - ./source_db_init/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  target_postgres:
+    # Service for the target PostgreSQL database
+    image: postgres:latest
+    # Use the official PostgreSQL image
+    networks:
+      # Define the network for the service
+      - elt_network
+    environment:
+      # Environment variables for PostgreSQL
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: target_db
+    ports:
+      # Expose the PostgreSQL port
+      - "5434:5432"
+    # Don't need to initialize target volume until we know elt script works
+    #volumes:
+      # Map the local directory to the container's init directory
+    #  - ./target_db_init/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # Service for the ETL script
+  elt_script:
+    # Build the Dockerfile in the current directory
+    build:
+      context: ./elt
+      dockerfile: Dockerfile
+    command: ["python", "elt_script.py"]
+    networks:
+      # Define the network for the service
+      - elt_network
+    depends_on:
+      # Ensure source_postgres is ready before running the script
+      # This container won't start until dependencies are finished building
+      - source_postgres
+      - target_postgres
+    #environment:
+      # Environment variables for the ETL script
+      #SOURCE_DB_HOST: source_postgres
+      #SOURCE_DB_PORT: 5432
+      #SOURCE_DB_USER: postgres
+      #SOURCE_DB_PASSWORD: secret
+      #SOURCE_DB_NAME: source_db
+      #TARGET_DB_HOST: target_postgres
+      #TARGET_DB_PORT: 5432
+      #TARGET_DB_USER: postgres
+      #TARGET_DB_PASSWORD: secret
+      #TARGET_DB_NAME: target_db
+
+
+
+networks:
+  elt_network:
+    # Define the network for the services
+    driver: bridge
+
+  # Additional services can be added here, such as target databases or ETL tools
+  # For example, a target PostgreSQL database service could be defined similarly
+  # to the source_postgres service.
