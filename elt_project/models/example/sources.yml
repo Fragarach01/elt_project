@@ -1,9 +1,9 @@
 version: 2
 
 sources:
-  - name: destination_db
-    description: "Raw data from the destination PostgreSQL database."
-    database: destination_db
+  - name: target_db
+    description: "Raw data from the target PostgreSQL database."
+    database: target_db
     schema: public
     tables:
       - name: films

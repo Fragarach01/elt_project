@@ -3,7 +3,7 @@
 services:
   source_postgres:
     # Service for the source PostgreSQL database
-    image: postgres:latest
+    image: postgres:17.6
     # Use the official PostgreSQL image
     networks:
       # Define the network for the service
@@ -24,10 +24,11 @@ services:
     volumes:
       # Map the local directory to the container's init directory
       - ./source_db_init/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./elt/data_dump.sql:/docker-entrypoint-initdb.d/data_dump.sql
 
   target_postgres:
     # Service for the target PostgreSQL database
-    image: postgres:latest
+    image: postgres:17.6
     # Use the official PostgreSQL image
     networks:
       # Define the network for the service
@@ -52,6 +53,8 @@ services:
       context: ./elt
       dockerfile: Dockerfile
     command: ["python", "elt_script.py"]
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
     networks:
       # Define the network for the service
       - elt_network
@@ -72,6 +75,35 @@ services:
       #TARGET_DB_USER: postgres
       #TARGET_DB_PASSWORD: secret
       #TARGET_DB_NAME: target_db
+
+  
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-postgres:latest
+    # Use the official dbt image for PostgreSQL
+    command:
+      [
+        "run",
+        "--profiles-dir",
+        "/root",
+        "--project-dir",
+        "/dbt"
+      ]
+    networks:
+    # Define the network for the service
+      - elt_network
+    volumes:
+      # Map the local dbt project directory to the container's /dbt directory
+      - ./elt_project:/dbt 
+      # Map the local profiles.yml to the container's /usr/app/ directory
+      - ~/.dbt:/root #./elt_project/profiles.yml:/usr/app/profiles.yml
+    depends_on:
+      # Ensure target_postgres is ready before running dbt
+      - elt_script
+    environment:
+      DBT_PROFILE: elt_project
+      DBT_TARGET: dev
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 
 

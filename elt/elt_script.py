@@ -68,9 +68,12 @@ dump_command = [
     "--username", source_config["user"],
  #   "--password", source_config["password"],
  #   "--format", "c",
-    "--file", "data_dump.sql",
-    "-w"  # Disable password prompt
+    "-f", "/usr/lib/postgresql/17/bin/data_dump.sql",
+    "-w",  # Disable password prompt
+    "--verbose"
 ]
+
+
 
 # Set the environment variable for PGPASSWORD to avoid password prompt
 subprocess_env = dict(PGPASSWORD=source_config["password"])
@@ -87,16 +90,19 @@ load_command = [
     "--host", target_config["host"],
     "--dbname", target_config["database"],
     "--username", target_config["user"],
-    "-a",
-    "--file", "data_dump.sql"
+ #   "-a",
+    "-f", "/usr/lib/postgresql/17/bin/data_dump.sql",
+    "--log-file", "data_dump.txt",
 ]
 
 subprocess_env = dict(PGPASSWORD=target_config["password"])
 
-subprocess.run(
+result = subprocess.run(
     load_command,
     env=subprocess_env,
     check=True
 )
+
+print(result)
 
 print("ELT script completed successfully.")
